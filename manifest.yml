@@ -1,0 +1,16 @@
+ALIAS: null
+CLI: true
+DEPENDENCIES:
+- MBoxCore
+- MBoxGit
+- MBoxWorkspace
+- MBoxDependencyManager
+GROUPS:
+- Plugin
+LAUNCHER: true
+NAME: MBoxDev
+RUBY: true
+VERSION: '1.1'
+MINIMUM_VERSION: '4.8.0'
+AUTHORS:
+- MBox Team
