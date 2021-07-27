@@ -26,7 +26,7 @@ public class LauncherStage: BuildStage {
         return MBoxDev.pluginPackage?.resoucePath(for: "Templates/Launcher")
     }
 
-    public static func updateManifest(_ manifest: MBPluginPackage) {
+    public static func updateManifest(_ manifest: MBPluginPackage) throws {
         manifest.hasLauncher = true
     }
 

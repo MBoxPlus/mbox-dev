@@ -102,9 +102,9 @@ extension MBCommander.Plugin {
         }
 
         open func updateManifest() throws {
-            UI.section("Update `manifest.yml`") {
+            try UI.section("Update `manifest.yml`") {
                 let manifest = self.workRepo.manifest ?? self.workRepo.createManifest(name: self.name)
-                self.template.updateManifest(manifest)
+                try self.template.updateManifest(manifest)
                 manifest.save()
             }
         }

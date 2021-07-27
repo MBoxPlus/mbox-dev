@@ -16,7 +16,7 @@ public protocol DevTemplate: CustomStringConvertible {
     static var dirName: String { get }
     static var path: String? { get }
 
-    static func updateManifest(_ manifest: MBPluginPackage)
+    static func updateManifest(_ manifest: MBPluginPackage) throws
 }
 
 public let DevTemplateKeys = ["__project_name__", "__ProjectName__", "__project-name__", "__mbox_latest_version__"]
@@ -26,7 +26,7 @@ extension DevTemplate {
         return self.name
     }
 
-    public static func updateManifest(_ manifest: MBPluginPackage) {
+    public static func updateManifest(_ manifest: MBPluginPackage) throws {
     }
 
     public static func copy(to directory: String) throws {
