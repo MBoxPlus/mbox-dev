@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		99486BE2A74EFA1FE9D67DB7 /* Pods_MBoxDev.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DBF9FE22B8AE4FCD99A85402 /* Pods_MBoxDev.framework */; };
 		AB063F622383F5B4000EB0DD /* NextVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB063F612383F5B4000EB0DD /* NextVersion.swift */; };
+		AB2A6C3326720A30009C35AC /* Test.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2A6C3226720A30009C35AC /* Test.swift */; };
 		AB3D95A22667C88E00FEA318 /* DevTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB3D95A12667C88E00FEA318 /* DevTemplate.swift */; };
 		AB5236E126651DED00B6EB90 /* CopyResource.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB5236E026651DED00B6EB90 /* CopyResource.swift */; };
 		AB5236E3266621D100B6EB90 /* Launcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB5236E2266621D100B6EB90 /* Launcher.swift */; };
@@ -24,6 +25,7 @@
 /* Begin PBXFileReference section */
 		680B011C229495A53E430EE3 /* Pods-MBoxDev.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MBoxDev.release.xcconfig"; path = "Target Support Files/Pods-MBoxDev/Pods-MBoxDev.release.xcconfig"; sourceTree = "<group>"; };
 		AB063F612383F5B4000EB0DD /* NextVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NextVersion.swift; sourceTree = "<group>"; };
+		AB2A6C3226720A30009C35AC /* Test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Test.swift; sourceTree = "<group>"; };
 		AB3D95A12667C88E00FEA318 /* DevTemplate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DevTemplate.swift; sourceTree = "<group>"; };
 		AB4648B923126EF800972C12 /* MBoxDev.podspec */ = {isa = PBXFileReference; explicitFileType = text.script.ruby; indentWidth = 2; path = MBoxDev.podspec; sourceTree = SOURCE_ROOT; tabWidth = 2; };
 		AB4648BA23126EF800972C12 /* Podfile.rb */ = {isa = PBXFileReference; explicitFileType = text.script.ruby; indentWidth = 2; path = Podfile.rb; sourceTree = SOURCE_ROOT; tabWidth = 2; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
@@ -131,6 +133,7 @@
 			children = (
 				AB5236DF26651DBB00B6EB90 /* BuildStage */,
 				ABC0AE5223A61E32004831A8 /* Build.swift */,
+				AB2A6C3226720A30009C35AC /* Test.swift */,
 				AB6D75FB230469A0003A0EA1 /* Dev.swift */,
 				AB063F612383F5B4000EB0DD /* NextVersion.swift */,
 				ABF9E31F260A02B500721E50 /* Plugin.swift */,
@@ -160,7 +163,6 @@
 				AB6D75E8230467FB003A0EA1 /* Headers */,
 				AB6D75E9230467FB003A0EA1 /* Sources */,
 				AB6D75EA230467FB003A0EA1 /* Frameworks */,
-				AB6D760023046E1B003A0EA1 /* Package Dylibs */,
 			);
 			buildRules = (
 			);
@@ -227,27 +229,6 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		AB6D760023046E1B003A0EA1 /* Package Dylibs */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 12;
-			files = (
-			);
-			inputFileListPaths = (
-				"$(PODS_ROOT)/MBoxCore/repackage-dylibs.input.xcfilelist",
-			);
-			inputPaths = (
-			);
-			name = "Package Dylibs";
-			outputFileListPaths = (
-				"$(PODS_ROOT)/MBoxCore/repackage-dylibs.output.xcfilelist",
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = "/bin/sh -li";
-			shellScript = "export LANG=en_US.UTF-8\nexport LANGUAGE=en_US.UTF-8\nexport LC_ALL=en_US.UTF-8\ncd \"${SRCROOT}/../..\"\nbundle exec ruby \"${PODS_ROOT}/MBoxCore/repackage-dylibs.rb\"\n";
-			showEnvVarsInLog = 0;
-		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -260,6 +241,7 @@
 				AB6D75FE23046AAE003A0EA1 /* MBoxDev.swift in Sources */,
 				AB5236E126651DED00B6EB90 /* CopyResource.swift in Sources */,
 				AB063F622383F5B4000EB0DD /* NextVersion.swift in Sources */,
+				AB2A6C3326720A30009C35AC /* Test.swift in Sources */,
 				ABF9E320260A02B500721E50 /* Plugin.swift in Sources */,
 				AB3D95A22667C88E00FEA318 /* DevTemplate.swift in Sources */,
 				AB5236E3266621D100B6EB90 /* Launcher.swift in Sources */,

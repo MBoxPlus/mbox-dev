@@ -1,2 +1,11 @@
-require "bundler/gem_tasks"
-task :default => :spec
+# require "bundler/gem_tasks"
+# task :default => :spec
+
+require "rake/testtask"
+task :default => [:test]
+
+Rake::TestTask.new do |t|
+  t.libs.concat ENV["MBOX_TEST_CASE_PATHS"].split(":")
+  t.libs << "lib/test-utils"
+  t.test_files = t.libs.flat_map { |path| FileList["#{path}/**/*_test.rb"] }
+end

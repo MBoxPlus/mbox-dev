@@ -21,7 +21,10 @@ Pod::Spec.new do |spec|
   spec.source       = { :git => "git@github.com:MBoxSpace/#{name2}.git", :tag => "#{spec.version}" }
   spec.source_files = "#{name}/*.{h,m,swift}", "#{name}/**/*.{h,m,swift}"
 
-  yaml['DEPENDENCIES'].each do |name|
+  yaml['DEPENDENCIES']&.each do |name|
+    spec.dependency name
+  end
+  yaml['FORWARD_DEPENDENCIES']&.each do |name, _|
     spec.dependency name
   end
 

@@ -5,6 +5,7 @@ DEPENDENCIES:
 - MBoxGit
 - MBoxWorkspace
 - MBoxDependencyManager
+- MBoxRuby
 GROUPS:
 - Plugin
 LAUNCHER: true
