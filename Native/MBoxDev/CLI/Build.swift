@@ -102,22 +102,24 @@ extension MBCommander.Plugin {
         open var force: Bool = false
         open var test: Bool = false
         open var clean: Bool = true
-        open lazy var stages: [BuildStage] = Self.stages.map { $0.init(outputDir: self.outputDir) }
+        open lazy var stages: [BuildStage] = Self.stages.map { $0.init(outputDir: self.outputDir) }.sorted(by: \.name)
         open var outputDir: String!
 
         open override func validate() throws {
             try super.validate()
+            let repos: [MBConfig.Repo]
             if self.names.isEmpty {
-                self.repos = self.config.currentFeature.repos.compactMap(\.workRepository)
+                repos = self.config.currentFeature.repos
             } else {
-                self.repos = self.names.compactMap { name -> MBConfig.Repo? in
+                repos = self.names.compactMap { name -> MBConfig.Repo? in
                     if let repo = self.config.currentFeature.findRepo(name: name).first {
                         return repo
                     }
                     UI.log(warn: "Could not find the repo: \(name)")
                     return nil
-                }.compactMap(\.workRepository)
+                }
             }
+            self.repos = repos.compactMap(\.workRepository).sorted(by: \.name)
         }
 
         open var releaseRepos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)] = []
