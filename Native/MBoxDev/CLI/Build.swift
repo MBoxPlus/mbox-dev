@@ -10,15 +10,15 @@ import Foundation
 import MBoxCore
 import MBoxWorkspaceCore
 
-public protocol BuildStage: DevTemplate {
-    var name: String { get }
-    
+public protocol BuildStage {    
+    static var name: String { get }
     init(outputDir: String)
     var outputDir: String { get }
 
     func validate(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws
     func build(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws
     func test(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws
+    func update(manifest: MBPluginPackage, repo: MBWorkRepo, version: String) throws
 
     func upgrade(repo: MBWorkRepo, nextVersion: String) throws
     func shouldBuild(repo: MBWorkRepo) -> Bool
@@ -29,17 +29,15 @@ extension BuildStage {
         return Self.name
     }
     public var description: String {
-        return self.name
+        return Self.name
     }
-    public func validate(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws {
-    }
-    public func test(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws {
-    }
+    public func validate(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws { }
+    public func test(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws { }
+    public func update(manifest: MBPluginPackage, repo: MBWorkRepo, version: String) throws { }
     public func shouldBuild(repo: MBWorkRepo) -> Bool {
         return false
     }
-    public func upgrade(repo: MBWorkRepo, nextVersion: String) throws {
-    }
+    public func upgrade(repo: MBWorkRepo, nextVersion: String) throws { }
 }
 
 extension MBCommander.Plugin {
@@ -179,6 +177,17 @@ extension MBCommander.Plugin {
                 }
             }
 
+            try self.eachStage("Generate Manifest") { stage in
+                for (repo, _, nextVersion) in self.releaseRepos {
+                    var package = MBPluginPackage(dictionary: repo.manifest!.dictionary)
+                    package.path = repo.productDir(self.outputDir)
+                    package.filePath = package.path!.appending(pathComponent: "manifest.yml")
+                    try UI.log(verbose: "[\(repo)] Save manifest: `\(Workspace.relativePath(package.filePath!))`") {
+                        try stage.update(manifest: package, repo: repo, version: nextVersion)
+                        package.save()
+                    }
+                }
+            }
             try self.eachStage("Build Product") { stage in
                 try stage.build(repos: releaseRepos)
             }

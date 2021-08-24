@@ -46,12 +46,17 @@ extension MBCommander.Plugin {
             return root.appending(pathComponent: template.dirName)
         }
 
+        dynamic
+        open class var allTemplates: [DevTemplate.Type] {
+            return [LauncherStage.self, CopyResourceStage.self]
+        }
+
         open override func validate() throws {
             try super.validate()
             if self.currentRepo?.workRepository == nil {
                 throw UserError("Must run in a repo directory.")
             }
-            guard let template = Build.stages.first(where: { $0.name.lowercased() == templateName.lowercased() }) else {
+            guard let template = Self.allTemplates.first(where: { $0.name.lowercased() == templateName.lowercased() }) else {
                 throw ArgumentError.invalidValue(value: templateName, argument: "template")
             }
             self.template = template

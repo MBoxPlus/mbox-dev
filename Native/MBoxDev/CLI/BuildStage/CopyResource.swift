@@ -16,17 +16,11 @@ public class CopyResourceStage: BuildStage {
         return "Resource"
     }
 
-    public static var dirName: String {
-        return "Resources"
-    }
-
     required public init(outputDir: String) {
         self.outputDir = outputDir
     }
 
     public var outputDir: String
-
-    public static var path: String? { return nil }
 
     lazy var commitDateFormatter: DateFormatter = {
         let dateFormatter = DateFormatter()
@@ -58,34 +52,14 @@ public class CopyResourceStage: BuildStage {
     }
 
     public func build(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws {
-        for (repo, _, nextVersion) in repos {
+        for (repo, _, _) in repos {
             try UI.log(verbose: "[\(repo)]") {
-                var package = MBPluginPackage(dictionary: repo.manifest!.dictionary)
-                package.path = self.outputDir.appending(pathComponent: repo.manifest!.name)
-                package.filePath = package.path!.appending(pathComponent: "manifest.yml")
-
-                try UI.log(verbose: "Save manifest: `\(Workspace.relativePath(package.filePath!))`") {
-                    let head = try repo.git!.commit()
-                    package.buildDate = commitDateFormatter.string(from: Date())
-                    package.version = nextVersion
-                    package.commitID = head.oid.desc(length: 7)
-                    package.commitDate = commitDateFormatter.string(from: head.author.time)
-                    package.buildNumber = buildNumberFormatter.string(from: head.author.time)
-                    package.version = nextVersion
-                    package.publisher = repo.git!.authorName
-                    if package.gitURL == nil {
-                        package.gitURL = repo.url
-                    }
-                    if package.homepage == nil {
-                        package.homepage = repo.gitURL?.toHTTPStyle()
-                    }
-                    package.save()
-                }
+                let productDir = repo.productDir(self.outputDir)
 
                 if let icon = repo.manifest?.icon {
                     let iconAtPath = repo.path.appending(pathComponent: icon)
                     if FileManager.default.fileExists(atPath: iconAtPath) {
-                        let iconToPath = package.path.appending(pathComponent: icon)
+                        let iconToPath = productDir.appending(pathComponent: icon)
                         try UI.log(verbose: "Copy `\(Workspace.relativePath(iconAtPath))` -> `\(Workspace.relativePath(iconToPath))`.") {
                             if iconToPath.isExists {
                                 try FileManager.default.removeItem(atPath: iconToPath)
@@ -97,7 +71,7 @@ public class CopyResourceStage: BuildStage {
 
                 let settingFile = repo.path.appending(pathComponent: "setting.schema.json")
                 if settingFile.isExists {
-                    let dstPath = package.path.appending(pathComponent: settingFile.lastPathComponent)
+                    let dstPath = productDir.appending(pathComponent: settingFile.lastPathComponent)
                     if dstPath.isExists {
                         try FileManager.default.removeItem(atPath: dstPath)
                     }
@@ -106,7 +80,7 @@ public class CopyResourceStage: BuildStage {
 
                 let resourcesPath = repo.path.appending(pathComponent: "Resources")
                 if resourcesPath.isExists {
-                    let dstPath = package.path.appending(pathComponent: "Resources")
+                    let dstPath = productDir.appending(pathComponent: "Resources")
                     try UI.log(verbose: "Copy `\(Workspace.relativePath(resourcesPath))` -> `\(Workspace.relativePath(dstPath))`.") {
                         if dstPath.isExists {
                             try FileManager.default.removeItem(atPath: dstPath)
@@ -117,4 +91,28 @@ public class CopyResourceStage: BuildStage {
             }
         }
     }
+
+    public func update(manifest: MBPluginPackage, repo: MBWorkRepo, version: String) throws {
+        let head = try repo.git!.commit()
+        manifest.buildDate = commitDateFormatter.string(from: Date())
+        manifest.version = version
+        manifest.commitID = head.oid.desc(length: 7)
+        manifest.commitDate = commitDateFormatter.string(from: head.author.time)
+        manifest.buildNumber = buildNumberFormatter.string(from: head.author.time)
+        manifest.publisher = repo.git!.authorName
+        if manifest.gitURL == nil {
+            manifest.gitURL = repo.url
+        }
+        if manifest.homepage == nil {
+            manifest.homepage = repo.gitURL?.toHTTPStyle()
+        }
+    }
+}
+
+extension CopyResourceStage: DevTemplate {
+    public static var dirName: String {
+        return "Resources"
+    }
+
+    public static var path: String? { return nil }
 }

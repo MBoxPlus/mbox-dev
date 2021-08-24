@@ -11,7 +11,6 @@ import MBoxCore
 import MBoxWorkspaceCore
 
 public class LauncherStage: BuildStage {
-
     public static var name: String {
         return "Launcher"
     }
@@ -21,14 +20,6 @@ public class LauncherStage: BuildStage {
     }
 
     public var outputDir: String
-
-    public static var path: String? {
-        return MBoxDev.pluginPackage?.resoucePath(for: "Templates/Launcher")
-    }
-
-    public static func updateManifest(_ manifest: MBPluginPackage) throws {
-        manifest.hasLauncher = true
-    }
 
     public func build(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws {
         for (repo, _, _) in repos {
@@ -46,5 +37,15 @@ public class LauncherStage: BuildStage {
                 try FileManager.default.copyItem(atPath: sourcePath, toPath: dstPath)
             }
         }
+    }
+}
+
+extension LauncherStage: DevTemplate {
+    public static var path: String? {
+        return MBoxDev.pluginPackage?.resoucePath(for: "Templates/Launcher")
+    }
+
+    public static func updateManifest(_ manifest: MBPluginPackage) throws {
+        manifest.hasLauncher = true
     }
 }

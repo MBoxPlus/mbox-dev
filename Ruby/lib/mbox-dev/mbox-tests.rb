@@ -2,7 +2,7 @@ require 'minitest/autorun'
 require 'minitest/hooks/test'
 require 'tmpdir'
 require 'fileutils'
-require 'test-utils/executable'
+require_relative 'executable'
 require 'json'
 require 'minitest/rg'
 
