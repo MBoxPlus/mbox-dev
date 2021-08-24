@@ -207,8 +207,8 @@ extension MBCommander.Plugin {
                         UI.log(verbose: "There is not a manifest.yml, skip!")
                         return
                     }
-                    guard self.force || repo.git?.currentBranch == "master" else {
-                        UI.log(info: "The HEAD is NOT master, skip!")
+                    guard self.force || ["master", "main"].contains(repo.git?.currentBranch ?? "") else {
+                        UI.log(info: "The HEAD is NOT main/master, skip!")
                         return
                     }
                     guard let versions = try repo.nextVersion(force: force) else {
