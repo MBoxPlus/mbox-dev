@@ -177,17 +177,26 @@ extension MBCommander.Plugin {
                 }
             }
 
+            for (repo, _, _) in self.releaseRepos {
+                let path = repo.manifestPath!
+                let path2 = repo.productDir(self.outputDir).appending(pathComponent: "manifest.yml")
+                if path2.isExists {
+                    try FileManager.default.removeItem(atPath: path2)
+                }
+                try? FileManager.default.createDirectory(atPath: path2.deletingLastPathComponent, withIntermediateDirectories: true, attributes: nil)
+                try FileManager.default.copyItem(atPath: path, toPath: path2)
+            }
+
             try self.eachStage("Generate Manifest") { stage in
                 for (repo, _, nextVersion) in self.releaseRepos {
-                    var package = MBPluginPackage(dictionary: repo.manifest!.dictionary)
-                    package.path = repo.productDir(self.outputDir)
-                    package.filePath = package.path!.appending(pathComponent: "manifest.yml")
+                    let package: MBPluginPackage = MBPluginPackage.load(fromFile: repo.productDir(self.outputDir).appending(pathComponent: "manifest.yml"))
                     try UI.log(verbose: "[\(repo)] Save manifest: `\(Workspace.relativePath(package.filePath!))`") {
                         try stage.update(manifest: package, repo: repo, version: nextVersion)
                         package.save()
                     }
                 }
             }
+
             try self.eachStage("Build Product") { stage in
                 try stage.build(repos: releaseRepos)
             }
