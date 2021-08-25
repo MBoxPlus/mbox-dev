@@ -9,8 +9,6 @@
 import Foundation
 import MBoxCore
 import MBoxWorkspaceCore
-import Alamofire
-import MBoxTOS
 
 extension MBCommander.Plugin {
     open class NextVersion: Plugin {
