@@ -69,9 +69,7 @@ module Executable
     args = Array(command)
     env[:chdir] = "#{tmp_dir}/tests" unless env.key?(:chdir)
     args << ["--home=#{tmp_dir}/home", "--no-launcher"]
-    r = Executable.execute_command(ENV['MBOX_CLI_PATH'], args.flatten, env)
-    # puts r[1]
-    r
+    Executable.execute_command(ENV['MBOX_CLI_PATH'], args.flatten, env)
   end
 
   # Creates the methods for the executable with the given name.
@@ -111,7 +109,6 @@ module Executable
   def self.execute_command(executable, command, **kwargs)
     executable = which!(executable)
     full_command = "#{executable} #{command.join(' ')}"
-    puts full_command
 
     stdout = Indenter.new
     stderr = Indenter.new
@@ -122,7 +119,6 @@ module Executable
     stdout = stdout.join
     stderr = stderr.join
 
-    puts "status code: #{status.exitstatus}"
     return status.exitstatus, stdout, stderr
   end
 
@@ -283,7 +279,6 @@ module Executable
     #
     def <<(value)
       super
-      puts value
       io << value if io
     end
   end

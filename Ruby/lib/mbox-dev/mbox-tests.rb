@@ -35,7 +35,15 @@ class MBoxTests < MiniTest::Test
 
   def teardown
     super
-    # FileUtils.rm_rf(@tmp_dir)
+    unless self.failures.empty?
+      puts "::group::#{self.name}"
+      output_verbose_log
+      puts "::endgroup::"
+    end
+    FileUtils.rm_rf(@tmp_dir)
+  end
+
+  def output_verbose_log
   end
 
   def assert_contains_file(dir, files)
@@ -44,6 +52,7 @@ class MBoxTests < MiniTest::Test
     files.each do |file|
       assert all_files.include?(file), "#{dir}: #{all_files} NOT contains `#{file}`."
     end
+    assert false
   end
 
   def assert_not_contains_file(dir, files)
@@ -52,5 +61,6 @@ class MBoxTests < MiniTest::Test
     files.each do |file|
       assert !all_files.include?(file), "#{dir}: #{all_files} should NOT contains `#{file}`."
     end
+    assert false
   end
 end
