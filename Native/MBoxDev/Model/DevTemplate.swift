@@ -2,7 +2,7 @@
 //  DevTemplate.swift
 //  MBoxDev
 //
-//  Created by 詹迟晶 on 2019/12/1.
+//  Created by Whirlwind on 2019/12/1.
 //  Copyright © 2019 bytedance. All rights reserved.
 //
 

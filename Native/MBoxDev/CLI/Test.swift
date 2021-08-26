@@ -2,7 +2,7 @@
 //  Test.swift
 //  MBoxDev
 //
-//  Created by 詹迟晶 on 2021/6/10.
+//  Created by Whirlwind on 2021/6/10.
 //  Copyright © 2021 com.bytedance. All rights reserved.
 //
 
@@ -40,28 +40,27 @@ extension MBCommander.Plugin {
 
         open override func validate() throws {
             try super.validate()
-            if self.names.isEmpty {
-                self.repos = self.config.currentFeature.repos.compactMap(\.workRepository)
-            } else {
-                self.repos = self.names.compactMap { name -> MBConfig.Repo? in
-                    if let repo = self.config.currentFeature.findRepo(name: name).first {
-                        return repo
-                    }
-                    UI.log(warn: "Could not find the repo: \(name)")
-                    return nil
-                }.compactMap(\.workRepository)
+            self.plugins = self.developPlugins
+            if !self.names.isEmpty {
+                self.plugins = self.plugins.filter { plugin in
+                    return self.names.contains { plugin.isPlugin($0) }
+                }
             }
         }
 
         open var names: [String] = []
         open var file: String?
         open var method: String?
-        open var repos: [MBWorkRepo] = []
+        open var plugins: [MBPluginPackage] = []
+
+        open lazy var developPlugins: [MBPluginPackage] = {
+            return self.config.currentFeature.repos.compactMap(\.workRepository).compactMap { MBPluginPackage.from(directory: $0.path) }
+        }()
 
         open lazy var manager: MBPluginManager = {
-            let packages = self.repos.compactMap { MBPluginPackage.from(directory: $0.path) }
             let manager = MBPluginManager()
-            for package in packages {
+            manager.allPackages = MBPluginManager.shared.allPackages
+            for package in self.developPlugins {
                 manager.allPackages[package.name] = package
             }
             return manager
@@ -69,25 +68,30 @@ extension MBCommander.Plugin {
 
         open override func run() throws {
             try super.run()
+            UI.log(info: "Test Plugins: \(self.plugins.map { $0.name })")
             try UI.log(verbose: "Check bundler environment") {
                 try BundlerCMD.setup(workingDirectory: workspace.rootPath)
             }
-            for name in self.names {
-                let env = try self.setupEnv(name: name)
-                UI.log(info: env.toJSONString()!)
-                let cmd = BundlerCMD(useTTY: true)
-                cmd.env = cmd.env.filter { item in
-                    return !item.key.hasPrefix("MBOX_") ||
-                        item.key == "MBOX_CLI_PATH"
+            for plugin in self.plugins {
+                try UI.section("Test \(plugin.name)") {
+                    let env = try self.setupEnv(name: plugin.name)
+                    UI.log(info: env.toJSONString()!)
+                    let cmd = BundlerCMD(useTTY: true)
+                    cmd.env = cmd.env.filter { item in
+                        return !item.key.hasPrefix("MBOX_") ||
+                            item.key == "MBOX_CLI_PATH"
+                    }
+                    var cmdString = "exec rake test"
+                    if let file = self.file {
+                        cmdString << " TEST='\(file)'"
+                    }
+                    if let method = self.method {
+                        cmdString << " TESTOPTS='--name=\(method)'"
+                    }
+                    if !cmd.exec("\(cmdString) -f '\(Self.pluginPackage!.rubyDir!.appending(pathComponent: "rakefile"))'", env: env) {
+                        throw UserError("[\(plugin.name)] Test Failed!")
+                    }
                 }
-                var cmdString = "exec rake test"
-                if let file = self.file {
-                    cmdString << " TEST='\(file)'"
-                }
-                if let method = self.method {
-                    cmdString << " TESTOPTS='--name=\(method)'"
-                }
-                cmd.exec("\(cmdString) -f '\(Self.pluginPackage!.rubyDir!.appending(pathComponent: "rakefile"))'", env: env)
             }
         }
 

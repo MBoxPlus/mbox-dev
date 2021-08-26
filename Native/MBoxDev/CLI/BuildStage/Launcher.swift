@@ -2,7 +2,7 @@
 //  Launcher.swift
 //  MBoxDev
 //
-//  Created by 詹迟晶 on 2021/6/1.
+//  Created by Whirlwind on 2021/6/1.
 //  Copyright © 2021 com.bytedance. All rights reserved.
 //
 
