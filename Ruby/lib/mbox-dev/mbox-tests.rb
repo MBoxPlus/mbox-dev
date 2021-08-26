@@ -36,6 +36,7 @@ class MBoxTests < MiniTest::Test
   def teardown
     super
     unless self.failures.empty?
+      puts ""
       puts "::group::#{self.name}"
       output_verbose_log
       puts "::endgroup::"
@@ -52,7 +53,6 @@ class MBoxTests < MiniTest::Test
     files.each do |file|
       assert all_files.include?(file), "#{dir}: #{all_files} NOT contains `#{file}`."
     end
-    assert false
   end
 
   def assert_not_contains_file(dir, files)
@@ -61,6 +61,5 @@ class MBoxTests < MiniTest::Test
     files.each do |file|
       assert !all_files.include?(file), "#{dir}: #{all_files} should NOT contains `#{file}`."
     end
-    assert false
   end
 end
