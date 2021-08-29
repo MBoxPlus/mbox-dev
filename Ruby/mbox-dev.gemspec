@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
 
   spec.summary       = %q{Plugin for MBox.}
   spec.description   = %q{Plugin for MBox.}
-  spec.homepage      = "https://github.com/MBoxPlus/mbox-dev"
+  spec.homepage      = "https://github.com/MBoxSpace/mbox-dev"
   spec.license       = "MIT"
 
   # Prevent pushing this gem to RubyGems.org. To allow pushes either set the 'allowed_push_host'
