@@ -8,7 +8,6 @@
 
 import Foundation
 import MBoxCore
-import MBoxWorkspaceCore
 
 extension MBCommander.Plugin {
     open class NextVersion: Plugin {
@@ -46,21 +45,19 @@ extension MBCommander.Plugin {
                     try repo.updateMajorVersion(version)
                 }
             }
-            let nextVersion = try UI.section("Generate Next Version") { () -> String in
-                let versions = try repo.nextVersion(force: true)!
+            let versions = try UI.section("Generate Next Version") { () -> (current: String?, next: String) in
+                let versions = try repo.nextVersion()
                 if let current = versions.current {
                     UI.log(info: "Update version \(versions.next) from \(current).")
                 } else {
                     UI.log(info: "Update version \(versions.next).")
                 }
-                return versions.next
+                return versions
             }
             try UI.section("Update All Module Version") {
                 for stageClass in Build.stages {
                     let stage = stageClass.init(outputDir: "")
-                    if stage.shouldBuild(repo: repo) {
-                        try stage.upgrade(repo: repo, nextVersion: nextVersion)
-                    }
+                    try stage.upgrade(repos: [(repo: repo, curVersion: versions.current, nextVersion: versions.next)])
                 }
             }
         }

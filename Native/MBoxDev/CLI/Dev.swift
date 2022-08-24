@@ -8,8 +8,9 @@
 
 import Foundation
 import MBoxCore
-import MBoxWorkspaceCore
 import MBoxWorkspace
+import MBoxDependencyManager
+import MBoxContainer
 
 extension MBCommander.Plugin {
     open class Dev: Plugin {
@@ -27,47 +28,86 @@ extension MBCommander.Plugin {
             return arguments
         }
 
-        open override func setup(argv: ArgumentParser) throws {
-            try super.setup(argv: argv)
+        open override func setup() throws {
             templateName = try self.shiftArgument("template")
-            name = (self.shiftArgument("name") ?? root.lastPathComponent.convertCamelCased())
-            if name.lowercased().hasPrefix("mbox") {
-                name = "MBox" + name[4...]
-            }
+            self.name = self.shiftArgument("name")
+            try super.setup()
             self.shouldUpdateWorkspaceFile = true
         }
 
         open var templateName: String = ""
-        open var name: String = ""
+        open var name: String?
 
-        open var template: DevTemplate.Type!
-        open lazy var root: String = FileManager.pwd
-        open var installPath: String {
-            return root.appending(pathComponent: template.dirName)
-        }
-
-        dynamic
-        open class var allTemplates: [DevTemplate.Type] {
-            return [LauncherStage.self, CopyResourceStage.self]
-        }
-
-        open override func validate() throws {
-            try super.validate()
-            if self.currentRepo?.workRepository == nil {
-                throw UserError("Must run in a repo directory.")
-            }
-            guard let template = Self.allTemplates.first(where: { $0.name.lowercased() == templateName.lowercased() }) else {
-                throw ArgumentError.invalidValue(value: templateName, argument: "template")
-            }
-            self.template = template
-            if installPath.isExists {
-                throw UserError("The directory `\(template.name)` exists!")
+        open func moduleName(with name: String) -> String {
+            var name = name.convertCamelCased()
+            if name.lowercased().hasPrefix("mbox") {
+                name = "MBox" + name[4...]
             }
             if !name.hasPrefix("MBox") {
                 name = "MBox" + name
                 UI.log(warn: "MBox Plugin must has a prefix `MBox`, so we use the name `\(name)`.")
             }
-            UI.log(info: "Create Plugin `\(name)` with Template `\(self.template.name)`")
+            return name
+        }
+
+        open var template: DevTemplate.Type!
+        open var installPath: String {
+            return self.module.path.appending(pathComponent: template.dirName)
+        }
+
+        open var package: MBPluginPackage!
+        open var module: MBPluginModule!
+
+        dynamic
+        open class var allTemplates: [DevTemplate.Type] {
+            return [LauncherStage.self, ResourceStage.self, SettingStage.self]
+        }
+
+        open override func validate() throws {
+            try super.validate()
+            guard let workRepo = self.currentRepo?.workRepository else {
+                throw UserError("Must run in a repo directory.")
+            }
+
+            guard let template = Self.allTemplates.first(where: { $0.name.lowercased() == templateName.lowercased() }) else {
+                throw ArgumentError.invalidValue(value: templateName, argument: "template")
+            }
+            self.template = template
+
+            var originName: String
+            if let name = self.name {
+                originName = name
+            } else {
+                let path: String
+                if !template.supportSubmodule || FileManager.pwd == workRepo.path {
+                    path = workRepo.path
+                } else {
+                    path = FileManager.pwd
+                }
+                if let module = MBPluginModule.load(fromFile: path.appending(pathComponent: "manifest.yml")) {
+                    originName = module.name
+                } else {
+                    originName = path.relativePath(from: workRepo.path)
+                    if originName == "." {
+                        originName = path.lastPathComponent
+                    }
+                }
+            }
+            self.name = self.moduleName(with: originName)
+
+            self.package = workRepo.manifest ?? workRepo.createManifest(name: self.name!)
+
+            if !self.name!.hasPrefix(self.package.name) {
+                UI.log(error: "NAME(\(self.name!)) must be have a prefix `\(self.package.name)`.")
+                throw ArgumentError.invalidValue(value: self.name!, argument: "name")
+            }
+            let root = workRepo.path.appending(pathComponent: self.name!.deletePrefix(self.package.name))
+            self.module = try self.package.createModule(name: self.name!, root: root)
+
+            if installPath.isExists {
+                throw UserError("The directory `\(template.name)` exists!")
+            }
+            UI.log(info: "Create Plugin Module `\(name!)` with Template `\(self.template.name)`")
         }
 
         open override func run() throws {
@@ -79,7 +119,11 @@ extension MBCommander.Plugin {
             try createMetadata()
             self.checkMBoxLatestVersion()
 
-            UI.log(info: "Create Plugin `\(name)` Success!")
+            try self.activateComponent()
+            try self.activateContainer()
+
+            self.config.save()
+            UI.log(info: "Create Plugin `\(name!)` Success!")
         }
 
         open func copyTemplate() throws {
@@ -95,8 +139,8 @@ extension MBCommander.Plugin {
         }
 
         open func apply() throws {
-            try UI.section("Apply Project Name") {
-                try self.template.apply(with: name, in: installPath)
+            try UI.section("Apply Template String") {
+                try self.template.apply(with: self.module, in: installPath)
             }
         }
 
@@ -108,9 +152,9 @@ extension MBCommander.Plugin {
 
         open func updateManifest() throws {
             try UI.section("Update `manifest.yml`") {
-                let manifest = self.workRepo.manifest ?? self.workRepo.createManifest(name: self.name)
-                try self.template.updateManifest(manifest)
-                manifest.save()
+                try self.template.updateManifest(self.module!)
+                self.module.save()
+                self.module.superModule?.save()
             }
         }
 
@@ -137,6 +181,27 @@ extension MBCommander.Plugin {
                 }
             } else {
                 UI.log(verbose: "Failed request latest version of MBox.")
+            }
+        }
+
+        dynamic
+        open func activateComponent() throws {
+            guard let components = self.currentRepo?.workRepository?.components else {
+                return
+            }
+            UI.section("Activate Components") {
+                for component in components {
+                    self.currentRepo?.activateComponent(component)
+                }
+            }
+        }
+
+        dynamic
+        open func activateContainer() throws {
+            if let containers = self.currentRepo?.workRepository?.containers {
+                UI.section("Activate Containers") {
+                    self.config.currentFeature.activateContainers(containers)
+                }
             }
         }
     }

@@ -215,7 +215,7 @@ module Executable
 
   def self.popen3(bin, command, stdout, stderr, **kwargs)
     require 'open3'
-    Open3.popen3(bin, *command, **kwargs) do |i, o, e, t|
+    Open3.popen3({"MBox" => nil}, bin, *command, **kwargs) do |i, o, e, t|
       reader(o, stdout)
       reader(e, stderr)
       i.close
@@ -243,6 +243,7 @@ module Executable
               break
             end
             output << (string << separator)
+            # puts string
           end
         end
       rescue EOFError, IOError

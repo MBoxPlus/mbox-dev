@@ -7,8 +7,7 @@
 //
 
 import Foundation
-import MBoxCore
-import MBoxWorkspaceCore
+@_exported import MBoxWorkspace
 
 @objc(MBoxDev)
 open class MBoxDev: NSObject, MBPluginProtocol {

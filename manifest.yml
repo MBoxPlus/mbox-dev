@@ -1,14 +1,14 @@
-ALIAS: null
 CLI: true
 DEPENDENCIES:
 - MBoxCore
 - MBoxGit
-- MBoxWorkspace
 - MBoxDependencyManager
 - MBoxRuby
+- MBoxContainer
+FORWARD_DEPENDENCIES:
+  MBoxWorkspace: null
 GROUPS:
 - Plugin
-LAUNCHER: true
 NAME: MBoxDev
 RUBY: true
 VERSION: '1.1'

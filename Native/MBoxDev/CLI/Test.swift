@@ -8,7 +8,6 @@
 
 import Foundation
 import MBoxCore
-import MBoxWorkspaceCore
 import MBoxRuby
 
 extension MBCommander.Plugin {
@@ -20,7 +19,7 @@ extension MBCommander.Plugin {
 
         open class override var arguments: [Argument] {
             var arguments = super.arguments
-            arguments << Argument("name", description: "Plugin Names, otherwise will test all plugins.", required: false, plural: true)
+            arguments << Argument("name", description: "Plugin/Module Names, otherwise will test all plugins.", required: false, plural: true)
             return arguments
         }
 
@@ -36,14 +35,17 @@ extension MBCommander.Plugin {
             self.method = self.shiftOption("method")
             self.names = self.shiftArguments("name")
             try super.setup()
+            self.requireSetupEnvironment = true
         }
 
         open override func validate() throws {
             try super.validate()
-            self.plugins = self.developPlugins
+            self.modules = self.developPlugins.flatMap { $0.allModules }
             if !self.names.isEmpty {
-                self.plugins = self.plugins.filter { plugin in
-                    return self.names.contains { plugin.isPlugin($0) }
+                self.modules = self.modules.filter { module in
+                    return self.names.contains {
+                        module.isName($0)
+                    }
                 }
             }
         }
@@ -51,7 +53,7 @@ extension MBCommander.Plugin {
         open var names: [String] = []
         open var file: String?
         open var method: String?
-        open var plugins: [MBPluginPackage] = []
+        open var modules: [MBPluginModule] = []
 
         open lazy var developPlugins: [MBPluginPackage] = {
             return self.config.currentFeature.repos.compactMap(\.workRepository).compactMap { MBPluginPackage.from(directory: $0.path) }
@@ -61,22 +63,24 @@ extension MBCommander.Plugin {
             let manager = MBPluginManager()
             manager.allPackages = MBPluginManager.shared.allPackages
             for package in self.developPlugins {
-                manager.allPackages[package.name] = package
+                manager.allPackages.removeAll { $0.name == package.name }
+                manager.allPackages.append(package)
             }
             return manager
         }()
 
         open override func run() throws {
             try super.run()
-            UI.log(info: "Test Plugins: \(self.plugins.map { $0.name })")
+            UI.log(info: "Test Plugins:", items: self.modules.map { $0.name })
             try UI.log(verbose: "Check bundler environment") {
                 try BundlerCMD.setup(workingDirectory: workspace.rootPath)
             }
-            for plugin in self.plugins {
-                try UI.section("Test \(plugin.name)") {
-                    let env = try self.setupEnv(name: plugin.name)
+            for module in self.modules {
+                try UI.section("Test \(module.name)") {
+                    let env = try self.setupEnv(name: module.name)
                     UI.log(info: env.toJSONString()!)
-                    let cmd = BundlerCMD(useTTY: true)
+                    let cmd = BundlerCMD()
+                    cmd.showOutput = true
                     cmd.env = cmd.env.filter { item in
                         return !item.key.hasPrefix("MBOX_") ||
                             item.key == "MBOX_CLI_PATH"
@@ -88,26 +92,29 @@ extension MBCommander.Plugin {
                     if let method = self.method {
                         cmdString << " TESTOPTS='--name=\(method)'"
                     }
-                    if !cmd.exec("\(cmdString) -f '\(Self.pluginPackage!.rubyDir!.appending(pathComponent: "rakefile"))'", env: env) {
-                        throw UserError("[\(plugin.name)] Test Failed!")
+                    if !cmd.exec("\(cmdString) -f '\(Self.pluginModule!.rubyDir!.appending(pathComponent: "rakefile"))'", env: env) {
+                        throw UserError("[\(module.name)] Test Failed!")
                     }
                 }
             }
         }
 
-        open func setupTestCase(packages: [MBPluginPackage]) throws -> [String] {
-            return packages.map { package in
-                return package.path.appending(pathComponent: "Native/Tests")
+        open func setupTestCase(modules: [MBPluginModule]) throws -> [String] {
+            return modules.map { module in
+                return module.path.appending(pathComponent: "Native/Tests")
             }.filter { $0.isDirectory }
         }
 
         open func setupEnv(name: String) throws -> [String: String] {
             var env = [String: String]()
-            let packages = manager.dependencies(for: name)
-            env["MBOX_PLUGIN_PATHS"] = packages.map { $0.path }.joined(separator: ":")
-            env["MBOX_TEST_CASE_PATHS"] = try self.setupTestCase(packages: packages).joined(separator: ":")
+            var modules = manager.dependencies(for: name)
+            if let module = manager.module(for: name) {
+                modules.append(module)
+            }
+            env["MBOX_PLUGIN_PATHS"] = modules.map { $0.package.path }.withoutDuplicates().joined(separator: ":")
+            env["MBOX_TEST_CASE_PATHS"] = try self.setupTestCase(modules: modules).joined(separator: ":")
             env["MBOX_TEST_PLUGIN_NAME"] = name
-            if let devRoot = UI.devRoot {
+            if let devRoot = MBProcess.shared.devRoot {
                 env["MBOX_DEV_ROOT"] = devRoot
             }
             return env

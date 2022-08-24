@@ -1,8 +1,9 @@
 {
-  "podfile": "Native/Podfile.rb",
-  "podspec": "Native/MBoxDev.podspec",
-  "xcodeproj": "Native/MBoxDev.xcodeproj",
-  "gem": {
+  "cocoapods": {
+    "podfile": "Native/Podfile.rb",
+    "podspec": "Native/MBoxDev.podspec"
+  },
+  "bundler": {
     "gemspec": "Ruby/mbox-dev.gemspec"
   }
 }

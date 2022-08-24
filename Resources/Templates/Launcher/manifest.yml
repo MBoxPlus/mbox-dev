@@ -1,6 +1,5 @@
 
 git-lfs:
-  required: true
   platforms:
     - iOS
     - Android

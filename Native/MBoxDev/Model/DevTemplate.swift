@@ -9,24 +9,42 @@
 import Foundation
 import MBoxCore
 import MBoxGit
-import MBoxWorkspaceCore
 
 public protocol DevTemplate: CustomStringConvertible {
     static var name: String { get }
     static var dirName: String { get }
     static var path: String? { get }
 
-    static func updateManifest(_ manifest: MBPluginPackage) throws
+    static var supportSubmodule: Bool { get }
+
+    static func updateManifest(_ module: MBPluginModule) throws
 }
 
-public let DevTemplateKeys = ["__project_name__", "__ProjectName__", "__project-name__", "__mbox_latest_version__"]
+public let DevTemplateKeys = [
+    "__MBoxModuleName__",
+    "__mbox_module_name__",
+    "__mbox-module-name__",
+    "__MBox/Module/Name__",
+
+    "__MBoxPackageName__",
+    "__mbox_package_name__",
+    "__mbox-package-name__",
+
+    "__MBoxModuleDir(RelativePackage)__",
+    "__MBoxPackageDir(RelativeModule)__",
+    "__mbox_latest_version__"
+]
 
 extension DevTemplate {
     public static var dirName: String {
         return self.name
     }
 
-    public static func updateManifest(_ manifest: MBPluginPackage) throws {
+    public static var supportSubmodule: Bool {
+        return true
+    }
+
+    public static func updateManifest(_ module: MBPluginModule) throws {
     }
 
     public static func copy(to directory: String) throws {
@@ -57,33 +75,50 @@ extension DevTemplate {
         }
     }
 
-    public static func format(_ name: String, template: String) -> String {
+    public static func format(template: String, with module: MBPluginModule) -> String {
         switch template {
-        case "__project_name__":
-            return name.convertSnakeCased()
-        case "__ProjectName__":
-            return name.convertCamelCased()
-        case "__project-name__":
-            return name.convertKebabCased()
+        case "__MBoxModuleName__":
+            return module.name
+        case "__mbox_module_name__":
+            return module.name.convertSnakeCased()
+        case "__mbox-module-name__":
+            return module.name.convertKebabCased()
+        case "__MBox/Module/Name__":
+            return module.nameWithGroup
+
+        case "__MBoxPackageName__":
+            return module.package!.name
+        case "__mbox_package_name__":
+            return module.package!.name.convertSnakeCased()
+        case "__mbox-package-name__":
+            return module.package!.name.convertKebabCased()
+
+        case "__MBoxModuleDir(RelativePackage)__":
+            let moduleName = module.relativeDir
+            return moduleName.isEmpty ? "." : moduleName
+        case "__MBoxPackageDir(RelativeModule)__":
+            let count = module.name.split(separator: "/").count - 1
+            return count == 0 ? "." : Array(repeating: "..", count: count).joined(separator: "/")
         case "__mbox_latest_version__":
             return MBoxCore.latestVersion ?? Bundle.app?.shortVersion ?? "2.4.0"    // default version
         default:
-            return name
+            return module.name
         }
     }
-    public static func replace(_ string: String, with name: String) -> (String, Bool) {
+
+    public static func replace(_ string: String, with module: MBPluginModule) -> (String, Bool) {
         var content = string
         var changed = false
         for template in DevTemplateKeys {
             if content.contains(template) {
                 changed = true
-                content = content.replacingOccurrences(of: template, with: format(name, template: template))
+                content = content.replacingOccurrences(of: template, with: format(template: template, with: module))
             }
         }
         return (content, changed)
     }
 
-    public static func apply(with name: String, in directory: String) throws {
+    public static func apply(with module: MBPluginModule, in directory: String) throws {
         let fm = FileManager.default
         let contents = try fm.contentsOfDirectory(atPath: directory)
         for filename in contents {
@@ -92,18 +127,22 @@ extension DevTemplate {
                 // Do nothing
             } else if path.isFile {
                 if let content = try? String(contentsOfFile: path, encoding: .utf8) {
-                    let (content, changed) = replace(content, with: name)
+                    let (content, changed) = replace(content, with: module)
                     if changed {
-                        try content.write(toFile: path, atomically: true, encoding: .utf8)
+                        try UI.log(verbose: "Update File Content: `\(path.relativePath(from: directory))`...") {
+                            try content.write(toFile: path, atomically: true, encoding: .utf8)
+                        }
                     }
                 }
             } else if path.isDirectory {
-                try self.apply(with: name, in: path)
+                try self.apply(with: module, in: path)
             }
-            let (content, changed) = replace(filename, with: name)
+            let (content, changed) = replace(filename, with: module)
             if changed {
                 let target = directory.appending(pathComponent: content)
-                try fm.moveItem(atPath: path, toPath: target)
+                try UI.log(verbose: "Move `\(path.relativePath(from: directory))` -> `\(target.relativePath(from: directory))`") {
+                    try fm.moveItem(atPath: path, toPath: target)
+                }
             }
         }
     }

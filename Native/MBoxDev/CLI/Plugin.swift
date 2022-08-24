@@ -8,10 +8,9 @@
 
 import Foundation
 import MBoxCore
-import MBoxWorkspaceCore
 
 extension MBCommander.Plugin {
-    open var workRepo: MBWorkRepo {
+    public var workRepo: MBWorkRepo {
         return self.currentRepo!.workRepository!
     }
 }

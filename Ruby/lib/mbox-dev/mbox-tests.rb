@@ -31,6 +31,7 @@ class MBoxTests < MiniTest::Test
 
     @tests_dir = @tmp_dir + "/tests"
     FileUtils.mkdir_p @tests_dir
+    # puts "TMP DIR: #{@tmp_dir}"
   end
 
   def teardown

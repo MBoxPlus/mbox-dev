@@ -10,18 +10,31 @@ import Foundation
 import MBoxCore
 import MBoxWorkspaceCore
 
+public enum BuildStep {
+    case validate
+    case upgrade
+    case build
+    case updateManifest
+}
+
 public protocol BuildStage {    
     static var name: String { get }
     init(outputDir: String)
     var outputDir: String { get }
 
-    func validate(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws
-    func build(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws
-    func test(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws
-    func update(manifest: MBPluginPackage, repo: MBWorkRepo, version: String) throws
+    func buildStep(for repo: MBWorkRepo) -> [BuildStep]
 
-    func upgrade(repo: MBWorkRepo, nextVersion: String) throws
-    func shouldBuild(repo: MBWorkRepo) -> Bool
+    func validate(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws
+    func validate(repo: MBWorkRepo, curVersion: String?, nextVersion: String) throws
+
+    func upgrade(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws
+    func upgrade(repo: MBWorkRepo, curVersion: String?, nextVersion: String) throws
+
+    func build(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws
+    func build(repo: MBWorkRepo, curVersion: String?, nextVersion: String) throws
+
+    func update(manifests: [MBWorkRepo: MBPluginPackage]) throws
+    func update(manifest: MBPluginPackage, repo: MBWorkRepo) throws
 }
 
 extension BuildStage {
@@ -31,13 +44,60 @@ extension BuildStage {
     public var description: String {
         return Self.name
     }
-    public func validate(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws { }
-    public func test(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws { }
-    public func update(manifest: MBPluginPackage, repo: MBWorkRepo, version: String) throws { }
-    public func shouldBuild(repo: MBWorkRepo) -> Bool {
-        return false
+
+    public func shouldRun(step: BuildStep, repo: MBWorkRepo) -> Bool {
+        return self.buildStep(for: repo).contains(step)
     }
-    public func upgrade(repo: MBWorkRepo, nextVersion: String) throws { }
+
+    public func validate(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws {
+        try self.each(repos: repos, title: "Validate Project") { (repo, curVersion, nextVersion) in
+            try self.validate(repo: repo, curVersion: curVersion, nextVersion: nextVersion)
+        }
+    }
+    public func validate(repo: MBWorkRepo, curVersion: String?, nextVersion: String) throws { }
+
+    public func upgrade(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws {
+        try self.each(repos: repos, title: "Upgrade Version") { (repo, curVersion, nextVersion) in
+            try self.upgrade(repo: repo, curVersion: curVersion, nextVersion: nextVersion)
+        }
+    }
+    public func upgrade(repo: MBWorkRepo, curVersion: String?, nextVersion: String) throws { }
+
+    public func build(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)]) throws {
+        try self.each(repos: repos, title: "Build Product") { (repo, curVersion, nextVersion) in
+            try self.build(repo: repo, curVersion: curVersion, nextVersion: nextVersion)
+        }
+    }
+    public func build(repo: MBWorkRepo, curVersion: String?, nextVersion: String) throws { }
+
+    public func update(manifests: [MBWorkRepo: MBPluginPackage]) throws {
+        try self.each(repos: manifests, title: "Update Manifest") { (repo, manifest) in
+            try self.update(manifest: manifest, repo: repo)
+        }
+    }
+    public func update(manifest: MBPluginPackage, repo: MBWorkRepo) throws { }
+
+    public func each(repos: [(repo: MBWorkRepo, curVersion: String?, nextVersion: String)],
+                     title: String,
+                     block: @escaping ((repo: MBWorkRepo, curVersion: String?, nextVersion: String)) throws -> Void) throws {
+        for item in repos {
+            try UI.allowAsyncExec(title: "[\(Self.name)] \(title) [\(item.repo.name)]") {
+                try block(item)
+            }
+        }
+        try UI.wait()
+    }
+
+    public func each<T>(repos: [MBWorkRepo: T],
+                        title: String,
+                        block: @escaping (_ repo: MBWorkRepo, _ object: T) throws -> Void) throws {
+        for (repo, obj) in repos {
+            try UI.allowAsyncExec(title: "[\(Self.name)] \(title) [\(repo.name)]") {
+                try block(repo, obj)
+            }
+        }
+        try UI.wait()
+    }
 }
 
 extension MBCommander.Plugin {
@@ -63,18 +123,16 @@ extension MBCommander.Plugin {
         open override class var flags: [Flag] {
             var flags = super.flags
             flags << Flag("force", description: "Force release exists version")
-            flags << Flag("test", description: "Run the unit test. Defaults: YES")
             flags << Flag("clean", description: "Clean output directory. Defaults: YES if no stage options.")
             return flags
         }
 
         dynamic
         open class var stages: [BuildStage.Type] {
-            return [LauncherStage.self, CopyResourceStage.self]
+            return [LauncherStage.self, ResourceStage.self, SettingStage.self]
         }
 
         open override func setup() throws {
-            self.test = self.shiftFlag("test", default: true)
             self.force = self.shiftFlag("force")
             let clean = self.shiftFlag("clean")
             self.outputDir = self.shiftOption("output-dir") ?? self.workspace.releaseDirectory
@@ -98,7 +156,6 @@ extension MBCommander.Plugin {
         open var names: [String] = []
         open var repos: [MBWorkRepo] = []
         open var force: Bool = false
-        open var test: Bool = false
         open var clean: Bool = true
         open lazy var stages: [BuildStage] = Self.stages.map { $0.init(outputDir: self.outputDir) }.sorted(by: \.name)
         open var outputDir: String!
@@ -141,13 +198,9 @@ extension MBCommander.Plugin {
             try super.run()
             try UI.section("List Upgrade Repos") {
                 self.releaseRepos = try upgradeRepos()
-                if !releaseRepos.isEmpty {
-                    UI.log(info: "These repos will be upgraded:",
-                                     items: self.releaseRepos.map { "\($0.repo.manifest!.name): \(($0.curVersion ?? "(none)").ANSI(.green)) -> \($0.nextVersion.ANSI(.yellow))" })
-                }
             }
 
-            if repos.isEmpty {
+            if releaseRepos.isEmpty {
                 UI.log(info: "No plugin to upgrade.")
                 return
             }
@@ -161,49 +214,55 @@ extension MBCommander.Plugin {
             }
 
             try self.eachStage("Validate Inforamtion") { stage in
-                try stage.validate(repos: self.releaseRepos)
+                let repos = self.releaseRepos.filter { stage.shouldRun(step: .validate, repo: $0.repo) }
+                try stage.validate(repos: repos)
             }
 
-            try self.eachStage("Upgrade Version", skip: { stage in
-                return !self.releaseRepos.contains { (repo: MBWorkRepo, curVersion: String?, nextVersion: String) in
-                    stage.shouldBuild(repo: repo)
-                }
-            }) { stage in
-                for (repo, _, nextVersion) in self.releaseRepos {
-                    if !stage.shouldBuild(repo: repo) { continue }
-                    try UI.log(verbose: "[\(repo.name)]") {
-                        try stage.upgrade(repo: repo, nextVersion: nextVersion)
-                    }
-                }
+            try self.eachStage("Upgrade Version") { stage in
+                let repos = self.releaseRepos.filter { stage.shouldRun(step: .upgrade, repo: $0.repo) }
+                try stage.upgrade(repos: repos)
             }
 
-            for (repo, _, _) in self.releaseRepos {
-                let path = repo.manifestPath!
-                let path2 = repo.productDir(self.outputDir).appending(pathComponent: "manifest.yml")
-                if path2.isExists {
-                    try FileManager.default.removeItem(atPath: path2)
-                }
-                try? FileManager.default.createDirectory(atPath: path2.deletingLastPathComponent, withIntermediateDirectories: true, attributes: nil)
-                try FileManager.default.copyItem(atPath: path, toPath: path2)
+            try UI.section("Copy Manifest") {
+                try self.copyManifests(repos: self.releaseRepos.map(\.repo))
             }
 
-            try self.eachStage("Generate Manifest") { stage in
-                for (repo, _, nextVersion) in self.releaseRepos {
-                    let package: MBPluginPackage = MBPluginPackage.load(fromFile: repo.productDir(self.outputDir).appending(pathComponent: "manifest.yml"))
-                    try UI.log(verbose: "[\(repo)] Save manifest: `\(Workspace.relativePath(package.filePath!))`") {
-                        try stage.update(manifest: package, repo: repo, version: nextVersion)
-                        package.save()
-                    }
-                }
+            var manifests: [MBWorkRepo: MBPluginPackage] = [:]
+            for (repo, _, version) in self.releaseRepos {
+                let manifest = repo.productManifest(self.outputDir)
+                manifest.version = version
+                manifests[repo] = manifest
+            }
+            try self.eachStage("Update Manifest") { stage in
+                let repos = manifests.filter { stage.shouldRun(step: .updateManifest, repo: $0.key) }
+                try stage.update(manifests: repos)
             }
 
             try self.eachStage("Build Product") { stage in
-                try stage.build(repos: releaseRepos)
+                let repos = self.releaseRepos.filter { stage.shouldRun(step: .build, repo: $0.repo) }
+                try stage.build(repos: repos)
             }
 
-            if self.test {
-                try self.eachStage("Test Product") { stage in
-                    try stage.test(repos: releaseRepos)
+            UI.section("Save Manifest") {
+                manifests.values.flatMap(\.allModules).forEachInParallel {
+                    $0.save() }
+            }
+        }
+
+        open func copyManifests(repos: [MBWorkRepo]) throws {
+            try MBWorkspace.eachRepos(repos, title: "Copy Manifest") { repo in
+                let dir = repo.productDir(self.outputDir)
+                for module in repo.manifest!.allModules {
+                    let targetPath = dir.appending(pathComponent: module.relativeDir).appending(pathComponent: module.filePath!.lastPathComponent)
+                    let sourcePath = module.filePath!
+                    try UI.log(verbose: "Copy `\(Workspace.relativePath(sourcePath))` -> `\(Workspace.relativePath(targetPath))`") {
+                        if targetPath.isExists {
+                            try? FileManager.default.removeItem(atPath: targetPath)
+                        } else {
+                            try? FileManager.default.createDirectory(atPath: targetPath.deletingLastPathComponent, withIntermediateDirectories: true, attributes: nil)
+                        }
+                        try FileManager.default.copyItem(atPath: sourcePath, toPath: targetPath)
+                    }
                 }
             }
         }
@@ -216,23 +275,40 @@ extension MBCommander.Plugin {
                         UI.log(verbose: "There is not a manifest.yml, skip!")
                         return
                     }
-                    guard self.force || ["master", "main"].contains(repo.git?.currentBranch ?? "") else {
-                        UI.log(info: "The HEAD is NOT main/master, skip!")
+                    let versions = try self.fetchNextVersion(repo: repo)
+                    guard self.shouldUpgrade(repo: repo, curVersion: versions.current, nextVersion: versions.next) else {
+                        UI.log(verbose: "Skip upgrade.")
                         return
-                    }
-                    guard let versions = try repo.nextVersion(force: force) else {
-                        UI.log(verbose: "No need release new version.")
-                        return
-                    }
-
-                    var info = "Will upgrade to v\(versions.next)"
-                    if let curVersion = versions.current {
-                        info.append(" from v\(curVersion)")
                     }
                     repos.append((repo: repo, curVersion: versions.current, nextVersion: versions.next))
                 }
             }
+            if !repos.isEmpty {
+                UI.log(info: "These repos will be upgraded:",
+                       items: repos.map { "\($0.repo.manifest!.name): \(($0.curVersion ?? "(none)").ANSI(.green)) -> \($0.nextVersion.ANSI(.yellow))" })
+            }
             return repos
+        }
+
+        open func fetchNextVersion(repo: MBWorkRepo) throws -> (current: String?, next: String) {
+            guard self.force || ["master", "main", "develop"].contains(repo.git?.currentBranch ?? "") else {
+                throw UserError("The HEAD is NOT main/master!")
+            }
+            return try repo.nextVersion()
+        }
+
+        open func shouldUpgrade(repo: MBWorkRepo, curVersion: String?, nextVersion: String) -> Bool {
+            if curVersion == nextVersion, !self.force {
+                return false
+            }
+            var info = "Will upgrade to v\(nextVersion)"
+            if let curVersion = curVersion {
+                info.append(" from v\(curVersion)")
+            }
+            if self.force {
+                info.append(" (Force)")
+            }
+            return true
         }
     }
 }
