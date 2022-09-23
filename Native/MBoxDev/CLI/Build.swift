@@ -292,7 +292,7 @@ extension MBCommander.Plugin {
 
         open func fetchNextVersion(repo: MBWorkRepo) throws -> (current: String?, next: String) {
             guard self.force || ["master", "main", "develop"].contains(repo.git?.currentBranch ?? "") else {
-                throw UserError("The HEAD is NOT main/master!")
+                throw UserError("The HEAD is NOT main/master/develop!")
             }
             return try repo.nextVersion()
         }

@@ -87,7 +87,7 @@ extension MBCommander.Plugin {
                 if let module = MBPluginModule.load(fromFile: path.appending(pathComponent: "manifest.yml")) {
                     originName = module.name
                 } else {
-                    originName = path.relativePath(from: workRepo.path)
+                    originName = path.relativePath(from: workRepo.path.deletingLastPathComponent)
                     if originName == "." {
                         originName = path.lastPathComponent
                     }
