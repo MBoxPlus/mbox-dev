@@ -7,8 +7,7 @@
 //
 
 import Foundation
-import MBoxCore
-import MBoxWorkspaceCore
+@_exported import MBoxWorkspace
 
 @objc(MBoxDev)
 open class MBoxDev: NSObject, MBPluginProtocol {
@@ -16,5 +15,6 @@ open class MBoxDev: NSObject, MBPluginProtocol {
         MBCommanderGroup.shared.addCommand(MBCommander.Plugin.Dev.self)
         MBCommanderGroup.shared.addCommand(MBCommander.Plugin.NextVersion.self)
         MBCommanderGroup.shared.addCommand(MBCommander.Plugin.Build.self)
+        MBCommanderGroup.shared.addCommand(MBCommander.Plugin.Test.self)
     }
 }

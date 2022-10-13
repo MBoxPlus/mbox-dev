@@ -2,13 +2,12 @@
 //  MBConfig.Repo.swift
 //  MBoxDev
 //
-//  Created by 詹迟晶 on 2019/11/17.
+//  Created by Whirlwind on 2019/11/17.
 //  Copyright © 2019 com.bytedance. All rights reserved.
 //
 
 import Foundation
 import MBoxCore
-import MBoxWorkspaceCore
 import MBoxDependencyManager
 
 var MBWorkRepoManifest: UInt8 = 0
@@ -26,40 +25,48 @@ extension MBWorkRepo {
     }
 
     public func createManifest(name: String) -> MBPluginPackage {
-        var package = MBPluginPackage()
-        package.name = name
+        var package = MBPluginPackage(dictionary: ["NAME": name])
         package.version = "1.0"
-        package.path = self.path
         package.filePath = self.manifestPath!
-        package.dependencies = ["MBoxCore"]
-        if let author = self.git?.authorName {
+        if let author = self.authorInfo {
             package.authors = [author]
         }
         return package
+    }
+
+    public var authorInfo: String? {
+        guard let author = self.git?.authorName else {
+            return nil
+        }
+        if let email = self.git?.authorEmail {
+            return "\(author) (\(email))"
+        } else {
+            return author
+        }
     }
 
     public func productDir(_ dir: String) -> String {
         return dir.appending(pathComponent: manifest!.name)
     }
 
+    public func productManifest(_ dir: String) -> MBPluginPackage {
+        return MBPluginPackage.load(fromFile: self.productDir(dir).appending(pathComponent: "manifest.yml"))
+    }
+
     // MARK: - Version
-    public func nextVersion(force: Bool = false) throws -> (current: String?, next: String)? {
+    public func nextVersion() throws -> (current: String?, next: String) {
         guard let manifest = self.manifest else {
             throw RuntimeError("There is not a manifest.yml, skip!")
         }
         guard let git = self.git,
-            let currentCommit = git.currentCommit else {
-                throw RuntimeError("Git status error, skip!")
+              let currentCommit = git.currentCommit else {
+                  throw RuntimeError("Git status error, skip!")
         }
         let maxVersion = git.maxVersionTag()
         let curVersion: String? = maxVersion?.name.deletePrefix("v")
 
         if currentCommit == maxVersion?.oid {
-            if force {
-                return (curVersion, curVersion!)
-            }
-            UI.log(verbose: "No commit from the previous version `\(maxVersion?.name ?? "(none)")`")
-            return nil
+            return (curVersion, curVersion!)
         }
 
         var number = 0
@@ -90,7 +97,7 @@ extension MBWorkRepo {
     }
 
     @_dynamicReplacement(for: fetchPackageNames())
-    open func dev_fetchPackageNames() -> [String] {
+    public func dev_fetchPackageNames() -> [String] {
         var names = self.fetchPackageNames()
         if let manifest = self.manifest {
             names.append(manifest.name)
