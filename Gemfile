@@ -1,2 +1,0 @@
-
-gemspec :path => "Ruby"

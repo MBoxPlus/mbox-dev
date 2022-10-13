@@ -1,5 +1,0 @@
-
-cmake:
-  required: true
-  dependencies:
-    - MBoxCore/Homebrew
